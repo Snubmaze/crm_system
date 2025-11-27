@@ -1,9 +1,13 @@
 #!/bin/sh
-
 set -e
 
-echo "Running DB initializer..."
+if [ ! -f ".env" ]; then
+  echo "Creating .env from .env.example..."
+  cp .env.example .env
+fi
+
+echo "Running DB seeder..."
 python seed.py
 
-echo "Starting FastAPI server..."
+echo "Starting FastAPI..."
 uvicorn src.main:app --host 0.0.0.0 --port 8000
