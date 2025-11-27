@@ -1,8 +1,10 @@
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, List, Tuple
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.ticket import Ticket, TicketStatus
+from src.models.operator import Operator
+from src.models.source import Source
 
 
 class TicketRepository:
@@ -53,3 +55,21 @@ class TicketRepository:
         rows = result.all()
 
         return {operator_id: count for operator_id, count in rows}
+
+    async def get_distribution_by_operator_and_source(
+        self,
+    ) -> List[Tuple[str, str, int]]:
+        """
+        Возвращает список кортежей: (operator_name, source_name, tickets_count)
+        """
+        stmt: Select = (
+            select(Operator.name, Source.name, func.count(Ticket.id))
+            .join(Operator, Ticket.operator_id == Operator.id)
+            .join(Source, Ticket.source_id == Source.id)
+            .group_by(Operator.name, Source.name)
+            .order_by(Operator.name, Source.name)
+        )
+
+        result = await self.session.execute(stmt)
+        return list(result.all())
+

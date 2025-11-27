@@ -1,7 +1,9 @@
 import random
 from typing import Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from src.models.ticket import Ticket
 from src.repositories import (
@@ -28,7 +30,6 @@ class TicketService:
         source_name: str,
         message: str,
     ) -> Ticket:
-
         lead = await self.lead_repo.get_by_email(email)
         if lead is None:
             lead = await self.lead_repo.create(email=email)
@@ -40,7 +41,6 @@ class TicketService:
         operator_weight_pairs = await self.operator_repo.get_for_source_with_weights(
             source_id=source.id,
         )
-
         if not operator_weight_pairs:
             raise AllOperatorsBusyError(
                 f"Для источника '{source_name}' не настроены операторы.",
@@ -51,22 +51,19 @@ class TicketService:
             operator_ids,
         )
 
-        available_operators: list[tuple[int, int]] = []
-
-        for operator, weight in operator_weight_pairs:
-            if not operator.is_active:
+        available: list[tuple[int, int]] = []
+        for op, weight in operator_weight_pairs:
+            if not op.is_active:
                 continue
-
-            current_load = active_counts.get(operator.id, 0)
-            if current_load >= operator.max_active_tickets:
+            current = active_counts.get(op.id, 0)
+            if current >= op.max_active_tickets:
                 continue
+            available.append((op.id, weight))
 
-            available_operators.append((operator.id, weight))
-
-        if not available_operators:
+        if not available:
             raise AllOperatorsBusyError()
 
-        operator_id = self._choose_operator_by_weight(available_operators)
+        operator_id = self._choose_operator_by_weight(available)
 
         ticket = await self.ticket_repo.create(
             lead_id=lead.id,
@@ -76,18 +73,24 @@ class TicketService:
         )
 
         await self.session.commit()
-        await self.session.refresh(ticket)
 
-        return ticket
+        stmt = (
+            select(Ticket)
+            .options(
+                selectinload(Ticket.lead),
+                selectinload(Ticket.source),
+            )
+            .where(Ticket.id == ticket.id)
+        )
+        result = await self.session.execute(stmt)
+        ticket_full = result.scalar_one()
 
+        return ticket_full
 
     @staticmethod
     def _choose_operator_by_weight(
         operator_weight_pairs: list[tuple[int, int]],
     ) -> int:
- 
         operator_ids = [op_id for op_id, _ in operator_weight_pairs]
-        weights = [weight for _, weight in operator_weight_pairs]
-
-        chosen_id: int = random.choices(operator_ids, weights=weights, k=1)[0]
-        return chosen_id
+        weights = [w for _, w in operator_weight_pairs]
+        return random.choices(operator_ids, weights=weights, k=1)[0]
