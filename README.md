@@ -34,7 +34,7 @@ docker run -p 8000:8000 --name lead-service-container lead-service
 
 1. Входящие данные содержат:
    - email лида  
-   - source_code (откуда пришёл запрос)  
+   - source_name (откуда пришёл запрос)  
    - текст обращения
 
 2. Лид определяется по email:
