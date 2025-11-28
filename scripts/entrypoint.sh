@@ -7,7 +7,7 @@ if [ ! -f ".env" ]; then
 fi
 
 echo "Running DB seeder..."
-python seed.py
+python scripts/seed.py
 
 echo "Starting FastAPI..."
 uvicorn src.main:app --host 0.0.0.0 --port 8000
