@@ -13,11 +13,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src ./src
-COPY scripts ./scripts
+COPY seed.py ./seed.py
+COPY entrypoint.sh ./entrypoint.sh
 COPY .env.example .env.example
 
-RUN chmod +x ./scripts/entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["./scripts/entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
